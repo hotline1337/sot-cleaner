@@ -10,7 +10,7 @@
 <p align="center">
 The program also goes beyond mere registry manipulations by actively cleaning  <strong>Windows credentials</strong>, ensuring tagged login information is not stored or accessible within the system. To bolster identification measures, the program implements  <strong>telemetry filters through</strong> modifications to the hosts file. This involves applying specific filters that  <strong>restrict communication</strong> with telemetry servers.
 <p align="center">
-  Through the strategic modification of hardware identifiers, <strong>sot_cleaner</strong>strong> allows users to regain access to game or services affected by <strong>Microsoft Hardware ID bans</strong>, including those imposed by errors like <strong>RedBeard</strong>.
+  Through the strategic modification of hardware identifiers, <strong>sot_cleaner</strong> allows users to regain access to game or services affected by <strong>Microsoft Hardware ID bans</strong>, including those imposed by errors like <strong>RedBeard</strong>.
 </p>
 </p>
 </p>
