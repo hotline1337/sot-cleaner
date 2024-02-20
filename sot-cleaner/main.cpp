@@ -64,9 +64,6 @@ auto main() -> std::int32_t
 			},
 			{
 				HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\TPM\\WMI", L"WindowsAIKHash"
-			},
-			{
-				HKEY_CURRENT_USER, L"Software\\Microsoft\\Direct3D", L"WHQLClass"
 			}
 		};
 		const std::vector<std::wstring> cred_data = {

@@ -134,7 +134,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <StringPooling>true</StringPooling>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <FloatingPointExceptions>true</FloatingPointExceptions>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
       <GuardEHContMetadata>true</GuardEHContMetadata>
       <OptimizeForWindowsApplication>true</OptimizeForWindowsApplication>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
