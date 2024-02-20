@@ -14,6 +14,7 @@ auto main() -> std::int32_t
 	LoadLibraryW(L"advapi32.dll");
 	LoadLibraryW(L"kernel32.dll");
 	LoadLibraryW(L"ole32.dll");
+	LoadLibraryW(L"iphlpapi.dll");
 
 	std::wcout << L"[~] sot-cleaner\n";
 	std::wcout << L"[~] made with <3 by hotline\n\n";
@@ -55,6 +56,17 @@ auto main() -> std::int32_t
 			},
 			{
 				HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0000", L"UserModeDriverGUID", true, false
+			}
+		};
+		const std::vector<std::tuple<HKEY, std::wstring, std::wstring>> binary_registry_data = {
+			{
+				HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters", L"Dhcpv6DUID"
+			},
+			{
+				HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\TPM\\WMI", L"WindowsAIKHash"
+			},
+			{
+				HKEY_CURRENT_USER, L"Software\\Microsoft\\Direct3D", L"WHQLClass"
 			}
 		};
 		const std::vector<std::wstring> cred_data = {
@@ -121,7 +133,7 @@ auto main() -> std::int32_t
 			registry.Close();
 		}
 
-		/* spoof registry */
+		/* spoof registry (guid) */
 		std::wcout << L"\n[*] spoofing registry\n";
 		for (const auto& key : guid_registry_data)
 		{
@@ -130,8 +142,30 @@ auto main() -> std::int32_t
 			{
 				std::wcout << L"[-] failed to open " << std::get<1>(key) << L"\n";
 			}
-
+			
 			registry_result = registry.TrySetStringValue(std::get<2>(key), utils::cryptography::generate_guid(std::get<3>(key), std::get<4>(key)));
+			if (!registry_result)
+			{
+				std::wcout << L"[-] failed to set " << std::get<1>(key) << L"\\" << std::get<2>(key) << L"\n";
+			}
+			else
+			{
+				std::wcout << L"[+] successfully spoofed " << std::get<1>(key) << L"\\" << std::get<2>(key) << L"\n";
+			}
+			registry.Close();
+		}
+
+		/* spoof registry (binary) */
+		for (const auto& key : binary_registry_data)
+		{
+			auto registry_result = registry.TryOpen(std::get<0>(key), std::get<1>(key));
+			if (!registry_result)
+			{
+				std::wcout << L"[-] failed to open " << std::get<1>(key) << L"\n";
+			}
+
+			auto value_size = registry.TryGetBinaryValue(std::get<2>(key)).GetValue().size();
+			registry_result = registry.TrySetBinaryValue(std::get<2>(key), utils::cryptography::generate_binary(value_size));
 			if (!registry_result)
 			{
 				std::wcout << L"[-] failed to set " << std::get<1>(key) << L"\\" << std::get<2>(key) << L"\n";
@@ -179,6 +213,17 @@ auto main() -> std::int32_t
 			std::wcout << L"[-] failed to apply telemetry filters\n";
 		}
 
+		/* spoof mac address */
+		std::wcout << L"\n[*] spoofing network adapters\n";
+		if (utils::network::spoof_adapters())
+		{
+			std::wcout << L"[+] successfully spoofed network adapters\n";
+		}
+		else
+		{
+			std::wcout << L"[-] failed to spoof network adapters\n";
+		}
+
 		/* flush dns */
 		std::wcout << L"\n[*] flushing dns\n";
 		if (utils::network::flush_dns_cache())
@@ -188,6 +233,28 @@ auto main() -> std::int32_t
 		else
 		{
 			std::wcout << L"[-] failed to flush dns\n";
+		}
+
+		/* restart winmgmt */
+		std::wcout << L"\n[*] restarting winmgmt\n";
+		if (utils::network::restart_winmgmt())
+		{
+			std::wcout << L"[+] successfully restarted winmgmt\n";
+		}
+		else
+		{
+			std::wcout << L"[-] failed to restart winmgmt\n";
+		}
+
+		/* restart network adapters */
+		std::wcout << L"\n[*] restarting network adapters\n";
+		if (utils::network::restart_adapters())
+		{
+			std::wcout << L"[+] successfully restarted network adapters\n";
+		}
+		else
+		{
+			std::wcout << L"[-] failed to restart network adapters\n";
 		}
 	}
 	catch (const std::runtime_error& error)

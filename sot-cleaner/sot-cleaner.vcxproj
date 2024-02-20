@@ -145,8 +145,9 @@
       </CCppSupport>
       <CheckUnicodeSecurity>false</CheckUnicodeSecurity>
       <EnableSyclOffload>false</EnableSyclOffload>
-      <GenerateAlternateCodePaths>AVX2</GenerateAlternateCodePaths>
-      <UseProcessorExtensions>AVX2</UseProcessorExtensions>
+      <GenerateAlternateCodePaths>AVX</GenerateAlternateCodePaths>
+      <UseProcessorExtensions>AVX</UseProcessorExtensions>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

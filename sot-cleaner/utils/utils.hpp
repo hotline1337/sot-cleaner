@@ -1,11 +1,20 @@
 #pragma once
 #include <Windows.h>
 #include <algorithm>
+#include <print>
 #include <string>
 #include <codecvt>
 #include <TlHelp32.h>
 #include <filesystem>
 #include <functional>
+#include <random>
+#include <ranges>
+#include <fstream>
+#include <sstream>
+#include <iphlpapi.h>
+#include <tchar.h>
+
+#include "libraries/winreg/winreg.hpp"
 
 namespace utils 
 {
@@ -48,27 +57,74 @@ namespace utils
     {
         inline std::function flush_dns_cache = []
         {
-            STARTUPINFOW si = {
-                .cb = sizeof(STARTUPINFOW)
-            };
-            PROCESS_INFORMATION pi = {};
-
             /* command to flush dns cache */
-            std::wstring command = L"ipconfig /release && ipconfig /flushdns && ipconfig /renew && ipconfig /flushdns";
+            const std::wstring command = L"/c \"ipconfig /release && ipconfig /flushdns && ipconfig /renew && ipconfig /flushdns\"";
 
             /* create the process */
-            if (CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
-            {
-                /* wait for the process to finish */
-                WaitForSingleObject(pi.hProcess, INFINITE);
+            SHELLEXECUTEINFOW shExInfo = { 0 };
+            shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+            shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+            shExInfo.hwnd = nullptr;
+            shExInfo.lpVerb = L"runas";
+            shExInfo.lpFile = L"cmd.exe";
+            shExInfo.lpParameters = command.c_str();
+            shExInfo.lpDirectory = nullptr;
+            shExInfo.nShow = SW_HIDE;
+            shExInfo.hInstApp = nullptr;
 
-                /* close process and thread handles */
-                CloseHandle(pi.hProcess);
-                CloseHandle(pi.hThread);
+            ShellExecuteExW(&shExInfo);
+            WaitForSingleObject(shExInfo.hProcess, INFINITE);
+            CloseHandle(shExInfo.hProcess);
 
-                return true;
-            }
-            return false;
+            return true;
+        };
+
+        inline std::function restart_winmgmt = []
+		{
+			/* command to restart winmgmt service */
+			const std::wstring command = L"/c \"net stop winmgmt && net start winmgmt\"";
+
+			/* create the process */
+            SHELLEXECUTEINFOW shExInfo = { 0 };
+            shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+            shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+            shExInfo.hwnd = nullptr;
+            shExInfo.lpVerb = L"runas";
+            shExInfo.lpFile = L"cmd.exe";
+            shExInfo.lpParameters = command.c_str();
+            shExInfo.lpDirectory = nullptr;
+            shExInfo.nShow = SW_HIDE;
+            shExInfo.hInstApp = nullptr;
+
+            ShellExecuteExW(&shExInfo);
+            WaitForSingleObject(shExInfo.hProcess, INFINITE);
+            CloseHandle(shExInfo.hProcess);
+
+            return true;
+		};
+
+        inline std::function restart_adapters = []
+        {
+            /* command to restart network adapters */
+            const std::wstring command = L"/c \"wmic path Win32_NetworkAdapter where PhysicalAdapter=TRUE call Disable && wmic path Win32_NetworkAdapter where PhysicalAdapter=TRUE call Enable\"";
+
+            /* create the process */
+            SHELLEXECUTEINFOW shExInfo = { 0 };
+            shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+            shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+            shExInfo.hwnd = nullptr;
+            shExInfo.lpVerb = L"runas";
+            shExInfo.lpFile = L"cmd.exe";
+            shExInfo.lpParameters = command.c_str();
+            shExInfo.lpDirectory = nullptr;
+            shExInfo.nShow = SW_HIDE;
+            shExInfo.hInstApp = nullptr;
+
+            ShellExecuteExW(&shExInfo);
+            WaitForSingleObject(shExInfo.hProcess, INFINITE);
+            CloseHandle(shExInfo.hProcess);
+
+            return true;
         };
 
         inline std::function apply_hosts_filter = [](const std::vector<std::wstring>& block_list)
@@ -124,6 +180,88 @@ namespace utils
                 return true;
             }
             return false;
+        };
+
+        inline std::function spoof_adapters = []
+        {
+            /* initialize local lambdas */
+            const auto generate_mac_address = []
+			{
+                std::wstringstream temp;
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_int_distribution<int> distribution(0, 253);
+
+                for (int i = 0; i < 6; i++) 
+                {
+	                const int number = distribution(gen);
+                    if (i != 0)
+                    {
+                        temp << std::setfill(L'0') << std::setw(2) << std::hex << number;
+                    }
+                    else
+                    {
+                        temp << L"02";
+                    }
+                        
+                    if (i != 5)
+                    {
+                        temp << L"-";
+                    }
+                }
+                std::wstring result = temp.str();
+                std::ranges::transform(result, result.begin(), [](const wchar_t c)
+                {
+	                return std::toupper(c);
+                });
+
+                return result;
+			};
+
+            /* spoof mac */
+            static winreg::RegKey registry;
+            auto registry_result = registry.TryOpen(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002bE10318}");
+            if (registry_result)
+            {
+	            const auto sub_keys = registry.TryEnumSubKeys().GetValue();
+                for (const auto& sub_key : sub_keys)
+                {
+                    const std::wstring sub_key_name = L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002bE10318}\\" + sub_key;
+                    registry_result = registry.TryOpen(HKEY_LOCAL_MACHINE, sub_key_name);
+                    if (registry_result)
+                    {
+                        auto enumerated_values = registry.TryEnumValues().GetValue();
+                        for (const auto& key : enumerated_values | std::views::keys)
+                        {
+                            if (key == L"NetworkAddress")
+							{
+                                auto driver_desc = registry.TryGetStringValue(L"DriverDesc").GetValue();
+                                std::wstring new_mac_address = generate_mac_address();
+                                std::wstring new_mac_address_registry_buffer = new_mac_address;
+                                new_mac_address_registry_buffer.erase(std::ranges::remove(new_mac_address_registry_buffer, '-').begin(), new_mac_address_registry_buffer.end());
+
+                                registry_result = registry.TrySetStringValue(L"NetworkAddress", new_mac_address_registry_buffer);
+                                if (registry_result)
+                                {
+                                    std::wcout << L"[+] successfully changed the mac address of " << driver_desc << " to " << new_mac_address << L"\n";
+                                }
+                                else
+                                {
+                                    std::wcout << L"[-] failed to change the mac address of " << driver_desc << L"\n";
+                                }
+                                registry.Close();
+							}
+                        }
+                    }
+                }
+                registry.Close();
+            }
+            else
+            {
+                std::wcout << L"[-] failed to open Net class\n";
+                return false;
+            }
+            return true;
         };
     }
 
@@ -216,5 +354,16 @@ namespace utils
 
             return remove_braces ? buffer : std::wstring{ guid_string };
         };
+
+        inline std::function generate_binary = [](const std::size_t size)
+		{
+        	std::srand(static_cast<unsigned int>(std::time(nullptr)));
+			std::vector<unsigned char> buffer(size);
+			std::ranges::generate(buffer, []
+			{
+				return static_cast<unsigned char>(std::rand() % 0x100);
+			});
+			return buffer;
+		};
     }
 }
