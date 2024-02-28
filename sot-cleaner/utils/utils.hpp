@@ -1,9 +1,7 @@
 #pragma once
 #include <Windows.h>
 #include <algorithm>
-#include <print>
 #include <string>
-#include <codecvt>
 #include <TlHelp32.h>
 #include <filesystem>
 #include <functional>
@@ -11,8 +9,7 @@
 #include <ranges>
 #include <fstream>
 #include <sstream>
-#include <iphlpapi.h>
-#include <tchar.h>
+#include <iostream>
 
 #include "libraries/winreg/winreg.hpp"
 
@@ -55,13 +52,13 @@ namespace utils
 
     namespace network
     {
-        inline std::function flush_dns_cache = []
+        inline std::function<bool()> flush_dns_cache = []
         {
             /* command to flush dns cache */
             const std::wstring command = L"/c \"ipconfig /release && ipconfig /flushdns && ipconfig /renew && ipconfig /flushdns\"";
 
             /* create the process */
-            SHELLEXECUTEINFOW shExInfo = { 0 };
+            SHELLEXECUTEINFOW shExInfo = {};
             shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
             shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
             shExInfo.hwnd = nullptr;
@@ -79,13 +76,13 @@ namespace utils
             return true;
         };
 
-        inline std::function restart_winmgmt = []
+        inline std::function<bool()> restart_winmgmt = []
 		{
 			/* command to restart winmgmt service */
 			const std::wstring command = L"/c \"net stop winmgmt && net start winmgmt\"";
 
 			/* create the process */
-            SHELLEXECUTEINFOW shExInfo = { 0 };
+            SHELLEXECUTEINFOW shExInfo = {};
             shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
             shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
             shExInfo.hwnd = nullptr;
@@ -103,13 +100,13 @@ namespace utils
             return true;
 		};
 
-        inline std::function restart_adapters = []
+        inline std::function<bool()> restart_adapters = []
         {
             /* command to restart network adapters */
             const std::wstring command = L"/c \"wmic path Win32_NetworkAdapter where PhysicalAdapter=TRUE call Disable && wmic path Win32_NetworkAdapter where PhysicalAdapter=TRUE call Enable\"";
 
             /* create the process */
-            SHELLEXECUTEINFOW shExInfo = { 0 };
+            SHELLEXECUTEINFOW shExInfo = {};
             shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
             shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
             shExInfo.hwnd = nullptr;
@@ -127,7 +124,7 @@ namespace utils
             return true;
         };
 
-        inline std::function apply_hosts_filter = [](const std::vector<std::wstring>& block_list)
+        inline std::function<bool(const std::vector<std::wstring>&)> apply_hosts_filter = [](const std::vector<std::wstring>& block_list)
         {
             const auto get_system_root = []() -> std::wstring
             {
@@ -182,7 +179,7 @@ namespace utils
             return false;
         };
 
-        inline std::function spoof_adapters = []
+        inline std::function<bool()> spoof_adapters = []
         {
             /* initialize local lambdas */
             const auto generate_mac_address = []
@@ -190,7 +187,7 @@ namespace utils
                 std::wstringstream temp;
                 std::random_device rd;
                 std::mt19937 gen(rd());
-                std::uniform_int_distribution<int> distribution(0, 253);
+                std::uniform_int_distribution distribution(0, 253);
 
                 for (int i = 0; i < 6; i++) 
                 {
@@ -230,14 +227,14 @@ namespace utils
                     registry_result = registry.TryOpen(HKEY_LOCAL_MACHINE, sub_key_name);
                     if (registry_result)
                     {
-                        auto enumerated_values = registry.TryEnumValues().GetValue();
+                        const auto enumerated_values = registry.TryEnumValues().GetValue();
                         for (const auto& key : enumerated_values | std::views::keys)
                         {
                             if (key == L"NetworkAddress")
 							{
-                                auto driver_desc = registry.TryGetStringValue(L"DriverDesc").GetValue();
-                                std::wstring new_mac_address = generate_mac_address();
-                                std::wstring new_mac_address_registry_buffer = new_mac_address;
+                                const auto driver_desc = registry.TryGetStringValue(L"DriverDesc").GetValue();
+                                const auto new_mac_address = generate_mac_address();
+                                auto new_mac_address_registry_buffer = new_mac_address;
                                 new_mac_address_registry_buffer.erase(std::ranges::remove(new_mac_address_registry_buffer, '-').begin(), new_mac_address_registry_buffer.end());
 
                                 registry_result = registry.TrySetStringValue(L"NetworkAddress", new_mac_address_registry_buffer);
@@ -258,7 +255,7 @@ namespace utils
             }
             else
             {
-                std::wcout << L"[-] failed to open Net class\n";
+                std::wcout << L"[-] failed to open registry Net class\n";
                 return false;
             }
             return true;
@@ -267,7 +264,7 @@ namespace utils
 
     namespace process
     {
-        inline std::function kill_process = [](const std::wstring& process_name)
+        inline std::function<bool(const std::wstring&)> kill_process = [](const std::wstring& process_name)
         {
             PROCESSENTRY32W entry = {};
             entry.dwSize = sizeof(PROCESSENTRY32W);
@@ -313,7 +310,7 @@ namespace utils
 
     namespace cryptography
     {
-        inline std::function generate_guid = [](const bool uppercase = false, const bool remove_braces = false)
+        inline std::function<std::wstring(bool, bool)> generate_guid = [](const bool uppercase = false, const bool remove_braces = false)
         {
             /* remove the curly braces from the guid string */
             const auto remove_curly_braces = [](const std::wstring& input)
@@ -355,7 +352,7 @@ namespace utils
             return remove_braces ? buffer : std::wstring{ guid_string };
         };
 
-        inline std::function generate_binary = [](const std::size_t size)
+        inline std::function<std::vector<unsigned char>(std::size_t)> generate_binary = [](const std::size_t size)
 		{
         	std::srand(static_cast<unsigned int>(std::time(nullptr)));
 			std::vector<unsigned char> buffer(size);

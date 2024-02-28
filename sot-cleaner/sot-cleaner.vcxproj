@@ -161,9 +161,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="context\class\credentials\credentials.cpp" />
+    <ClCompile Include="context\class\libraries\libraries.cpp" />
+    <ClCompile Include="context\class\network\network.cpp" />
+    <ClCompile Include="context\class\process\process.cpp" />
+    <ClCompile Include="context\class\registry\registry.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="context\class\credentials\credentials.hpp" />
+    <ClInclude Include="context\class\libraries\libraries.hpp" />
+    <ClInclude Include="context\class\network\network.hpp" />
+    <ClInclude Include="context\class\process\process.hpp" />
+    <ClInclude Include="context\class\registry\registry.hpp" />
+    <ClInclude Include="context\ctx.hpp" />
+    <ClInclude Include="context\data\data.hpp" />
     <ClInclude Include="utils\utils.hpp" />
     <ClInclude Include="utils\libraries\winreg\winreg.hpp" />
   </ItemGroup>
