@@ -6,7 +6,7 @@
 auto main() -> std::int32_t
 {
 	/* setup async future thread */
-	std::future<int> entry = std::async(std::launch::async, [&]
+	std::future<std::int32_t> entry = std::async(std::launch::async, [&]
 	{
 		/* load libraries (just in case lol cuz i dont add the libraries to the linker) */
 		ctx::libraries->initialize();

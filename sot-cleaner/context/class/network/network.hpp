@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include "../../../utils/libraries/winreg/winreg.hpp"
 
 class network
 {
@@ -17,4 +18,5 @@ private:
 	std::function<void()> _restart_adapters;
 	std::function<void()> _flush_dns_cache;
 	std::function<void()> _restart_winmgmt;
+	inline static auto m_winreg = winreg::RegKey();
 };

@@ -62,7 +62,7 @@ registry::registry() : _clean([this]
 			std::wcout << L"[-] failed to open " << std::get<1>(key) << L"\n";
 		}
 
-		auto value_size = m_winreg.TryGetBinaryValue(std::get<2>(key)).GetValue().size();
+		const auto value_size = m_winreg.TryGetBinaryValue(std::get<2>(key)).GetValue().size();
 		registry_result = m_winreg.TrySetBinaryValue(std::get<2>(key), utils::cryptography::generate_binary(value_size));
 		if (!registry_result)
 		{

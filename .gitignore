@@ -21,8 +21,7 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
-RiotGamesServers/
-ChinaServer/
+intermediates/
 x64/
 x86/
 [Aa][Rr][Mm]/

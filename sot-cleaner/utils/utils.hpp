@@ -33,13 +33,18 @@ namespace utils
             unsigned long value_size; /* size of value in bytes */
             unsigned char* value; /* value data */
         } credential_attributew, *pcredential_attributew;
+        typedef struct _filetime
+    	{
+	        unsigned long low_date_time;
+	        unsigned long high_date_time;
+        } filetime, *pfiletime, *lpfiletime;
         typedef struct _credentialw
     	{
 		    unsigned long flags;
 		    unsigned long type;
             wchar_t* target_name;
             wchar_t* comment;
-            FILETIME last_written;
+            filetime last_written;
 		    unsigned long credential_blob_size;
 		    unsigned char* credential_blob;
 		    unsigned long persist;
@@ -48,218 +53,6 @@ namespace utils
             wchar_t* target_alias;
             wchar_t* user_name;
         } credentialw, *pcredentialw;
-    }
-
-    namespace network
-    {
-        inline std::function<bool()> flush_dns_cache = []
-        {
-            /* command to flush dns cache */
-            const std::wstring command = L"/c \"ipconfig /release && ipconfig /flushdns && ipconfig /renew && ipconfig /flushdns\"";
-
-            /* create the process */
-            SHELLEXECUTEINFOW shExInfo = {};
-            shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-            shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-            shExInfo.hwnd = nullptr;
-            shExInfo.lpVerb = L"runas";
-            shExInfo.lpFile = L"cmd.exe";
-            shExInfo.lpParameters = command.c_str();
-            shExInfo.lpDirectory = nullptr;
-            shExInfo.nShow = SW_HIDE;
-            shExInfo.hInstApp = nullptr;
-
-            ShellExecuteExW(&shExInfo);
-            WaitForSingleObject(shExInfo.hProcess, INFINITE);
-            CloseHandle(shExInfo.hProcess);
-
-            return true;
-        };
-
-        inline std::function<bool()> restart_winmgmt = []
-		{
-			/* command to restart winmgmt service */
-			const std::wstring command = L"/c \"net stop winmgmt && net start winmgmt\"";
-
-			/* create the process */
-            SHELLEXECUTEINFOW shExInfo = {};
-            shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-            shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-            shExInfo.hwnd = nullptr;
-            shExInfo.lpVerb = L"runas";
-            shExInfo.lpFile = L"cmd.exe";
-            shExInfo.lpParameters = command.c_str();
-            shExInfo.lpDirectory = nullptr;
-            shExInfo.nShow = SW_HIDE;
-            shExInfo.hInstApp = nullptr;
-
-            ShellExecuteExW(&shExInfo);
-            WaitForSingleObject(shExInfo.hProcess, INFINITE);
-            CloseHandle(shExInfo.hProcess);
-
-            return true;
-		};
-
-        inline std::function<bool()> restart_adapters = []
-        {
-            /* command to restart network adapters */
-            const std::wstring command = L"/c \"wmic path Win32_NetworkAdapter where PhysicalAdapter=TRUE call Disable && wmic path Win32_NetworkAdapter where PhysicalAdapter=TRUE call Enable\"";
-
-            /* create the process */
-            SHELLEXECUTEINFOW shExInfo = {};
-            shExInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-            shExInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-            shExInfo.hwnd = nullptr;
-            shExInfo.lpVerb = L"runas";
-            shExInfo.lpFile = L"cmd.exe";
-            shExInfo.lpParameters = command.c_str();
-            shExInfo.lpDirectory = nullptr;
-            shExInfo.nShow = SW_HIDE;
-            shExInfo.hInstApp = nullptr;
-
-            ShellExecuteExW(&shExInfo);
-            WaitForSingleObject(shExInfo.hProcess, INFINITE);
-            CloseHandle(shExInfo.hProcess);
-
-            return true;
-        };
-
-        inline std::function<bool(const std::vector<std::wstring>&)> apply_hosts_filter = [](const std::vector<std::wstring>& block_list)
-        {
-            const auto get_system_root = []() -> std::wstring
-            {
-                wchar_t buffer[MAX_PATH];
-                GetSystemDirectoryW(buffer,MAX_PATH);
-                const std::filesystem::path path(buffer);
-                return path.wstring();
-            };
-
-            std::filesystem::path hosts_file = std::filesystem::path(get_system_root()) / R"(drivers\etc\hosts)";
-            std::wifstream file_input(hosts_file);
-            std::vector<std::wstring> all_host_lines;
-
-            if (file_input.is_open())
-            {
-                std::wstring line;
-                while (std::getline(file_input, line))
-                {
-                    all_host_lines.push_back(line);
-                }
-                file_input.close();
-            }
-
-            for (const auto& url : block_list)
-            {
-                bool line_exists = false;
-                for (const auto& line : all_host_lines)
-                {
-                    if (line.contains(url))
-                    {
-                        line_exists = true;
-                        break;
-                    }
-                }
-                if (!line_exists)
-                {
-                    all_host_lines.push_back(L"0.0.0.0            " + url);
-                    std::wcout << L"[+] successfully blocked " << url << L"\n";
-                }
-            }
-
-            std::wofstream file_output(hosts_file);
-            if (file_output.is_open())
-            {
-                for (const auto& line : all_host_lines)
-                {
-                    file_output << line << L"\n";
-                }
-                file_output.close();
-                return true;
-            }
-            return false;
-        };
-
-        inline std::function<bool()> spoof_adapters = []
-        {
-            /* initialize local lambdas */
-            const auto generate_mac_address = []
-			{
-                std::wstringstream temp;
-                std::random_device rd;
-                std::mt19937 gen(rd());
-                std::uniform_int_distribution distribution(0, 253);
-
-                for (int i = 0; i < 6; i++) 
-                {
-	                const int number = distribution(gen);
-                    if (i != 0)
-                    {
-                        temp << std::setfill(L'0') << std::setw(2) << std::hex << number;
-                    }
-                    else
-                    {
-                        temp << L"02";
-                    }
-                        
-                    if (i != 5)
-                    {
-                        temp << L"-";
-                    }
-                }
-                std::wstring result = temp.str();
-                std::ranges::transform(result, result.begin(), [](const wchar_t c)
-                {
-	                return std::toupper(c);
-                });
-
-                return result;
-			};
-
-            /* spoof mac */
-            static winreg::RegKey registry;
-            auto registry_result = registry.TryOpen(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002bE10318}");
-            if (registry_result)
-            {
-	            const auto sub_keys = registry.TryEnumSubKeys().GetValue();
-                for (const auto& sub_key : sub_keys)
-                {
-                    const std::wstring sub_key_name = L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002bE10318}\\" + sub_key;
-                    registry_result = registry.TryOpen(HKEY_LOCAL_MACHINE, sub_key_name);
-                    if (registry_result)
-                    {
-                        const auto enumerated_values = registry.TryEnumValues().GetValue();
-                        for (const auto& key : enumerated_values | std::views::keys)
-                        {
-                            if (key == L"NetworkAddress")
-							{
-                                const auto driver_desc = registry.TryGetStringValue(L"DriverDesc").GetValue();
-                                const auto new_mac_address = generate_mac_address();
-                                auto new_mac_address_registry_buffer = new_mac_address;
-                                new_mac_address_registry_buffer.erase(std::ranges::remove(new_mac_address_registry_buffer, '-').begin(), new_mac_address_registry_buffer.end());
-
-                                registry_result = registry.TrySetStringValue(L"NetworkAddress", new_mac_address_registry_buffer);
-                                if (registry_result)
-                                {
-                                    std::wcout << L"[+] successfully changed the mac address of " << driver_desc << " to " << new_mac_address << L"\n";
-                                }
-                                else
-                                {
-                                    std::wcout << L"[-] failed to change the mac address of " << driver_desc << L"\n";
-                                }
-                                registry.Close();
-							}
-                        }
-                    }
-                }
-                registry.Close();
-            }
-            else
-            {
-                std::wcout << L"[-] failed to open registry Net class\n";
-                return false;
-            }
-            return true;
-        };
     }
 
     namespace process
@@ -288,7 +81,7 @@ namespace utils
             do
             {
                 /* check if the process name matches the one we want to kill */
-                if (_wcsicmp(entry.szExeFile, process_name.c_str()) == 0)
+                if (process_name == std::wstring_view(entry.szExeFile))
                 {
                     /* open the process and terminate it */
                     const auto process = OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID);
@@ -343,7 +136,7 @@ namespace utils
 
             /* formatting */
             std::wstring buffer;
-            std::transform(guid_string, guid_string + wcslen(guid_string), guid_string, uppercase ? ::towupper : ::towlower);
+            std::transform(guid_string, guid_string + std::wstring(guid_string).size(), guid_string, uppercase ? towupper : towlower);
             if (remove_braces)
             {
                 buffer = remove_curly_braces(guid_string);
@@ -352,15 +145,19 @@ namespace utils
             return remove_braces ? buffer : std::wstring{ guid_string };
         };
 
-        inline std::function<std::vector<unsigned char>(std::size_t)> generate_binary = [](const std::size_t size)
+        inline std::function<std::vector<std::uint8_t>(std::size_t)> generate_binary = [](const std::size_t size)
 		{
-        	std::srand(static_cast<unsigned int>(std::time(nullptr)));
-			std::vector<unsigned char> buffer(size);
-			std::ranges::generate(buffer, []
-			{
-				return static_cast<unsigned char>(std::rand() % 0x100);
-			});
-			return buffer;
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<std::int32_t> dis(0, 255);
+
+            std::vector<std::uint8_t> buffer(size);
+            for (std::size_t i = 0; i < size; ++i) 
+            {
+                buffer[i] = static_cast<std::uint8_t>(dis(gen));
+            }
+
+            return buffer;
 		};
     }
 }
