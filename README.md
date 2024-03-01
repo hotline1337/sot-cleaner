@@ -12,7 +12,7 @@ The program also goes beyond mere registry manipulations by actively cleaning  <
 <p align="center">
   Through the strategic modification of hardware identifiers, <strong>sot_cleaner</strong> allows users to regain access to game or services affected by <strong>Microsoft Hardware ID bans</strong>, including those imposed by errors like <strong>RedBeard</strong>.
 <p align="center">
-Additionally, the program incorporates features for <strong>MAC address spoofing</strong>, allowing users to obfuscate their device's true MAC address, thereby enhancing privacy and evading certain network restrictions.
+Additionally, the program incorporates features for <strong>MAC address spoofing</strong>, allowing users to obfuscate their device's true MAC address, thereby enhancing privacy and evading certain network detections.
 </p>
 </p>
 </p>
